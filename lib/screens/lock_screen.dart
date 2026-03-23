@@ -70,8 +70,11 @@ class _LockScreenState extends State<LockScreen> {
     }
   }
 
-  // ── Logic: Lockout ──
-  void _startLockout() {
+  Future<void> _startLockout() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lockoutEnd = DateTime.now().add(const Duration(minutes: 5));
+    await prefs.setString('lockout_end', lockoutEnd.toIso8601String());
+
     setState(() {
       _isLockedOut = true;
       _lockoutRemaining = 300;
@@ -80,14 +83,44 @@ class _LockScreenState extends State<LockScreen> {
       _message = 'Locked out due to multiple failed attempts.';
     });
 
-    _lockoutTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      setState(() => _lockoutRemaining--);
+    _startLockoutTimer();
+  }
 
-      if (_lockoutRemaining <= 0) {
+  void _startLockoutTimer() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lockoutEndStr = prefs.getString('lockout_end');
+    if (lockoutEndStr == null) return;
+
+    final lockoutEnd = DateTime.parse(lockoutEndStr);
+
+    _lockoutTimer?.cancel();
+    _lockoutTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
+      final remaining = lockoutEnd.difference(DateTime.now());
+
+      if (remaining.isNegative || remaining.inSeconds <= 0) {
         timer.cancel();
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('lockout_end');
         _endLockout();
+      } else {
+        setState(() => _lockoutRemaining = remaining.inSeconds);
       }
     });
+  }
+
+  Future<void> _checkExistingLockout() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lockoutEndStr = prefs.getString('lockout_end');
+    if (lockoutEndStr == null) return;
+
+    final lockoutEnd = DateTime.parse(lockoutEndStr);
+
+    if (DateTime.now().isBefore(lockoutEnd)) {
+      setState(() => _isLockedOut = true);
+      _startLockoutTimer();
+    } else {
+      await prefs.remove('lockout_end');
+    }
   }
 
   void _endLockout() {
@@ -113,6 +146,12 @@ class _LockScreenState extends State<LockScreen> {
   void dispose() {
     _lockoutTimer?.cancel();
     super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _checkExistingLockout();
   }
 
   // ── UI: Keypad Row ──
