@@ -16,6 +16,18 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'KeySafe',
       debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        // ── Fix 1: dark scaffold background so no white flash ──
+        scaffoldBackgroundColor: const Color(0xFF0F172A),
+
+        // ── Fix 2: custom page transition (fade instead of slide) ──
+        pageTransitionsTheme: const PageTransitionsTheme(
+          builders: {
+            TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+            TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          },
+        ),
+      ),
       home: const LockScreen(),
     );
   }

@@ -8,19 +8,16 @@ class AddEntryScreen extends StatefulWidget {
   State<AddEntryScreen> createState() => _AddEntryScreenState();
 }
 
-// Returns 0 = weak, 1 = medium, 2 = strong
-int _getPasswordStrength(String password) { 
+int _getPasswordStrength(String password) {
   if (password.isEmpty) return 0;
-
   bool hasUpper = password.contains(RegExp(r'[A-Z]'));
   bool hasLower = password.contains(RegExp(r'[a-z]'));
   bool hasDigit = password.contains(RegExp(r'[0-9]'));
   bool hasSpecial = password.contains(RegExp(r'[!@#\$%^&*(),.?":{}|<>]'));
   int types = [hasUpper, hasLower, hasDigit, hasSpecial].where((b) => b).length;
-
-  if (password.length >= 10 && types >= 4) return 2; // strong
-  if (password.length >= 6 && types >= 2) return 1; // medium
-  return 0; // weak
+  if (password.length >= 10 && types >= 4) return 2;
+  if (password.length >= 6 && types >= 2) return 1;
+  return 0;
 }
 
 class _AddEntryScreenState extends State<AddEntryScreen> {
@@ -29,8 +26,20 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _urlController = TextEditingController();
+  final _notesController = TextEditingController();
+
   bool _passwordVisible = false;
   List<Map<String, String>> _securityQuestions = [];
+
+  String _selectedCategory = 'General';
+  final List<String> _categories = [
+    'General',
+    'Banking',
+    'Social',
+    'Work',
+    'Shopping',
+    'Streaming',
+  ];
 
   @override
   void dispose() {
@@ -39,6 +48,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     _passwordController.dispose();
     _emailController.dispose();
     _urlController.dispose();
+    _notesController.dispose();
     super.dispose();
   }
 
@@ -87,6 +97,8 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       'password': password,
       'url': url,
       'securityQuestions': _securityQuestions,
+      'category': _selectedCategory,
+      'notes': _notesController.text.trim(),
     });
   }
 
@@ -101,33 +113,12 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       _passwordController.text = generated;
       _passwordVisible = true;
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Row(
-          children: [
-            Icon(Icons.check_circle_rounded, color: Colors.white),
-            SizedBox(width: 12),
-            Text(
-              'Secure password generated!',
-              style: TextStyle(color: Colors.white),
-            ),
-          ],
-        ),
-        backgroundColor: const Color(0xFF10B981),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.all(20),
-        duration: const Duration(seconds: 2),
-      ),
-    );
   }
 
-  bool _isValidEmail(String email) {
-    return RegExp(r'^[\w.-]+@[\w.-]+\.[a-zA-Z]{2,}$').hasMatch(email);
-  }
-
+  bool _isValidEmail(String email) =>
+      RegExp(r'^[\w.-]+@[\w.-]+\.[a-zA-Z]{2,}$').hasMatch(email);
   bool _isValidUrl(String url) {
-    if (url.isEmpty) return true; // URL is optional, empty is fine
+    if (url.isEmpty) return true;
     return url.startsWith('http://') ||
         url.startsWith('https://') ||
         url.startsWith('www.');
@@ -158,24 +149,19 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
   }
 
   Widget _buildStrengthBar(String password) {
-    if (password.isEmpty)
-      return const SizedBox.shrink(); // hide if nothing typed
-
+    if (password.isEmpty) return const SizedBox.shrink();
     final int strength = _getPasswordStrength(password);
-
     final List<Color> colors = [
-      const Color(0xFFEF4444), // red   — weak
-      const Color(0xFFF59E0B), // amber — medium
-      const Color(0xFF10B981), // green — strong
+      const Color(0xFFEF4444),
+      const Color(0xFFF59E0B),
+      const Color(0xFF10B981),
     ];
-
     final List<String> labels = ['Weak', 'Medium', 'Strong'];
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       child: Row(
         children: [
-          // ── 3 segment bar ──
           ...List.generate(3, (i) {
             return Expanded(
               child: AnimatedContainer(
@@ -185,21 +171,18 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(2),
                   color: i <= strength
-                      ? colors[strength] // filled segment
-                      : Colors.white.withOpacity(0.1), // empty segment
+                      ? colors[strength]
+                      : Colors.white.withOpacity(0.1),
                 ),
               ),
             );
           }),
-
           const SizedBox(width: 10),
-
-          // ── Label ──
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 200),
             child: Text(
               labels[strength],
-              key: ValueKey(strength), // triggers animation on change
+              key: ValueKey(strength),
               style: TextStyle(
                 color: colors[strength],
                 fontSize: 12,
@@ -230,8 +213,6 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
         ),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
-
-      // ── Same gradient as main screen ──
       body: Container(
         width: double.infinity,
         height: double.infinity,
@@ -239,10 +220,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0F172A), // Deep Slate
-              Color(0xFF000000), // Pure Black
-            ],
+            colors: [Color(0xFF0F172A), Color(0xFF000000)],
           ),
         ),
         child: SafeArea(
@@ -251,7 +229,6 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── Icon Header ──
                 Center(
                   child: Container(
                     width: 72,
@@ -272,7 +249,6 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                 ),
                 const SizedBox(height: 32),
 
-                // ── Section Label ──
                 const Padding(
                   padding: EdgeInsets.only(left: 4, bottom: 10),
                   child: Text(
@@ -286,7 +262,6 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                   ),
                 ),
 
-                // ── Input Fields Container ──
                 Container(
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.04),
@@ -297,7 +272,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                     children: [
                       _buildField(
                         controller: _siteController,
-                        label: 'App/Website Name',
+                        label: 'App/Website',
                         hint: 'Example: Google, Netflix',
                         icon: Icons.language_rounded,
                       ),
@@ -308,9 +283,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                         hint: 'https://example.com',
                         icon: Icons.link_rounded,
                         keyboardType: TextInputType.url,
-                        onChanged: (_) => setState(
-                          () {},
-                        ), // ← triggers warning to appear live
+                        onChanged: (_) => setState(() {}),
                       ),
                       _buildDivider(),
                       _buildField(
@@ -326,9 +299,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                         hint: 'example@email.com',
                         icon: Icons.email_rounded,
                         keyboardType: TextInputType.emailAddress,
-                        onChanged: (_) => setState(
-                          () {},
-                        ), // ← triggers warning to appear live
+                        onChanged: (_) => setState(() {}),
                       ),
                       _buildDivider(),
                       _buildField(
@@ -341,23 +312,20 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                       ),
                     ],
                   ),
-                ), // ── Validation warnings ──
+                ),
 
                 _buildStrengthBar(_passwordController.text),
-
                 if (_emailController.text.isNotEmpty &&
                     !_isValidEmail(_emailController.text))
                   _buildWarning(
                     'Invalid email format  (e.g. name@example.com)',
                   ),
-
                 if (_urlController.text.isNotEmpty &&
                     !_isValidUrl(_urlController.text))
                   _buildWarning(
                     'URL should start with https:// or http:// or www.',
                   ),
 
-                // ── Generate Password Button ──
                 const SizedBox(height: 14),
                 SizedBox(
                   width: double.infinity,
@@ -393,6 +361,87 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                 ),
 
                 const SizedBox(height: 24),
+                const Padding(
+                  padding: EdgeInsets.only(left: 4, bottom: 10),
+                  child: Text(
+                    'CATEGORY',
+                    style: TextStyle(
+                      color: Color(0xFF64748B),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                ),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: _categories.map((category) {
+                      final isSelected = _selectedCategory == category;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8.0),
+                        child: ChoiceChip(
+                          label: Text(category),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            if (selected)
+                              setState(() => _selectedCategory = category);
+                          },
+                          backgroundColor: Colors.white.withOpacity(0.04),
+                          selectedColor: const Color(
+                            0xFF2563EB,
+                          ).withOpacity(0.2),
+                          labelStyle: TextStyle(
+                            color: isSelected
+                                ? const Color(0xFF60A5FA)
+                                : const Color(0xFF94A3B8),
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                          side: BorderSide(
+                            color: isSelected
+                                ? const Color(0xFF3B82F6).withOpacity(0.5)
+                                : Colors.white.withOpacity(0.08),
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+                const Padding(
+                  padding: EdgeInsets.only(left: 4, bottom: 10),
+                  child: Text(
+                    'ADDITIONAL DETAILS',
+                    style: TextStyle(
+                      color: Color(0xFF64748B),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                ),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.04),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.white.withOpacity(0.08)),
+                  ),
+                  child: _buildField(
+                    controller: _notesController,
+                    label: 'Notes',
+                    hint: 'Optional details, PINs, etc.',
+                    icon: Icons.note_alt_rounded,
+                    maxLines: 3,
+                  ),
+                ),
+
+                const SizedBox(height: 24),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -405,41 +454,38 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                         letterSpacing: 1.5,
                       ),
                     ),
-                    // Add new Q&A button
                     GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _securityQuestions.add({
-                            'question': '',
-                            'answer': '',
-                          });
-                        });
-                      },
+                      onTap: () => setState(
+                        () => _securityQuestions.add({
+                          'question': '',
+                          'answer': '',
+                        }),
+                      ),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
+                          horizontal: 14,
+                          vertical: 8,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF2563EB).withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(10),
+                          color: const Color(0xFF3B82F6).withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: const Color(0xFF2563EB).withOpacity(0.3),
+                            color: const Color(0xFF3B82F6).withOpacity(0.3),
                           ),
                         ),
                         child: const Row(
                           children: [
                             Icon(
-                              Icons.add_rounded,
-                              size: 14,
-                              color: Color(0xFF3B82F6),
+                              Icons.add_circle_outline_rounded,
+                              size: 16,
+                              color: Color(0xFF60A5FA),
                             ),
-                            SizedBox(width: 4),
+                            SizedBox(width: 6),
                             Text(
-                              'Add',
+                              'Add New',
                               style: TextStyle(
-                                color: Color(0xFF3B82F6),
-                                fontSize: 12,
+                                color: Color(0xFF60A5FA),
+                                fontSize: 13,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -449,14 +495,13 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
 
-                // ── Q&A pairs list ──
                 ..._securityQuestions.asMap().entries.map((entry) {
                   final i = entry.key;
                   final qa = entry.value;
                   return Container(
-                    margin: const EdgeInsets.only(bottom: 10),
+                    margin: const EdgeInsets.only(bottom: 12),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.04),
                       borderRadius: BorderRadius.circular(16),
@@ -464,22 +509,21 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                     ),
                     child: Column(
                       children: [
-                        // Question field
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
+                          padding: const EdgeInsets.fromLTRB(16, 6, 8, 6),
                           child: Row(
                             children: [
                               const Icon(
                                 Icons.help_outline_rounded,
-                                size: 16,
+                                size: 18,
                                 color: Color(0xFF2563EB),
                               ),
-                              const SizedBox(width: 10),
+                              const SizedBox(width: 12),
                               Expanded(
                                 child: TextField(
                                   style: const TextStyle(
                                     color: Color(0xFF94A3B8),
-                                    fontSize: 14,
+                                    fontSize: 15,
                                   ),
                                   controller:
                                       TextEditingController(
@@ -494,7 +538,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                                       color: const Color(
                                         0xFF475569,
                                       ).withOpacity(0.6),
-                                      fontSize: 13,
+                                      fontSize: 14,
                                     ),
                                     border: InputBorder.none,
                                     isDense: true,
@@ -503,13 +547,15 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                                       _securityQuestions[i]['question'] = val,
                                 ),
                               ),
-                              // Delete button
                               IconButton(
                                 icon: const Icon(
-                                  Icons.delete_outline_rounded,
-                                  size: 18,
-                                  color: Color(0xFF64748B),
+                                  Icons.close_rounded,
+                                  size: 20,
+                                  color: Color(0xFFEF4444),
                                 ),
+                                splashRadius: 20,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
                                 onPressed: () => setState(
                                   () => _securityQuestions.removeAt(i),
                                 ),
@@ -522,22 +568,21 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                           color: Colors.white.withOpacity(0.08),
                           indent: 16,
                         ),
-                        // Answer field
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                          padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
                           child: Row(
                             children: [
                               const Icon(
-                                Icons.short_text_rounded,
-                                size: 16,
+                                Icons.key_rounded,
+                                size: 18,
                                 color: Color(0xFF2563EB),
                               ),
-                              const SizedBox(width: 10),
+                              const SizedBox(width: 12),
                               Expanded(
                                 child: TextField(
                                   style: const TextStyle(
                                     color: Color(0xFF94A3B8),
-                                    fontSize: 14,
+                                    fontSize: 15,
                                   ),
                                   controller:
                                       TextEditingController(text: qa['answer'])
@@ -550,7 +595,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                                       color: const Color(
                                         0xFF475569,
                                       ).withOpacity(0.6),
-                                      fontSize: 13,
+                                      fontSize: 14,
                                     ),
                                     border: InputBorder.none,
                                     isDense: true,
@@ -569,31 +614,56 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
 
                 const SizedBox(height: 32),
 
-                // ── Save Button ──
                 SizedBox(
                   width: double.infinity,
-                  height: 56,
-                  child: ElevatedButton(
-                    onPressed: _onSave,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2563EB),
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                  child: GestureDetector(
+                    onTap: _onSave,
+                    child: Container(
+                      width: double.infinity,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF2563EB), Color(0xFF6366F1)],
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                        ),
+                        borderRadius: BorderRadius.circular(18),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF2563EB).withOpacity(0.5),
+                            blurRadius: 20,
+                            offset: const Offset(0, 6),
+                          ),
+                          BoxShadow(
+                            color: const Color(0xFF6366F1).withOpacity(0.3),
+                            blurRadius: 40,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
                       ),
-                    ),
-                    child: const Text(
-                      'Save Password',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.check_circle_outline_rounded,
+                            color: Colors.white,
+                            size: 22,
+                          ),
+                          SizedBox(width: 10),
+                          Text(
+                            'Save Password',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 20),
               ],
             ),
@@ -603,16 +673,9 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     );
   }
 
-  // ── Divider between fields ──
-  Widget _buildDivider() {
-    return Divider(
-      height: 1,
-      color: Colors.white.withOpacity(0.08),
-      indent: 16,
-    );
-  }
+  Widget _buildDivider() =>
+      Divider(height: 1, color: Colors.white.withOpacity(0.08), indent: 16);
 
-  // ── Input field with leading icon ──
   Widget _buildField({
     required TextEditingController controller,
     required String label,
@@ -621,16 +684,14 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     bool isPassword = false,
     ValueChanged<String>? onChanged,
     TextInputType keyboardType = TextInputType.text,
+    int maxLines = 1,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Row(
         children: [
-          // Leading icon
           Icon(icon, size: 18, color: const Color(0xFF2563EB)),
           const SizedBox(width: 12),
-
-          // Label
           SizedBox(
             width: 80,
             child: Text(
@@ -642,14 +703,13 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
               ),
             ),
           ),
-
-          // Text input
           Expanded(
             child: TextField(
               controller: controller,
               obscureText: isPassword && !_passwordVisible,
               keyboardType: keyboardType,
               onChanged: onChanged,
+              maxLines: maxLines,
               style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 15),
               decoration: InputDecoration(
                 hintText: hint,

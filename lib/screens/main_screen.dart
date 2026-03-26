@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'add_entry_screen.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'add_entry_screen.dart';
 import '../services/encryption_service.dart';
 import 'view_entry_screen.dart';
 
@@ -13,6 +13,8 @@ class PasswordEntry {
   String password;
   String url;
   List<Map<String, String>> securityQuestions;
+  String category;
+  String notes;
 
   PasswordEntry({
     required this.email,
@@ -21,6 +23,8 @@ class PasswordEntry {
     required this.password,
     required this.url,
     this.securityQuestions = const [],
+    this.category = 'General',
+    this.notes = '',
   });
 
   Map<String, dynamic> toJson() {
@@ -31,6 +35,8 @@ class PasswordEntry {
       'email': email,
       'url': url,
       'securityQuestions': securityQuestions,
+      'category': category,
+      'notes': notes,
     };
   }
 
@@ -44,6 +50,8 @@ class PasswordEntry {
       securityQuestions: (json['securityQuestions'] as List? ?? [])
           .map((e) => Map<String, String>.from(e))
           .toList(),
+      category: json['category'] ?? 'General',
+      notes: json['notes'] ?? '',
     );
   }
 }
@@ -64,7 +72,11 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _selectedTab == 0 ? const PasswordsTab() : const SettingsTab(),
+      backgroundColor: const Color(0xFF0F172A),
+      body: IndexedStack(
+        index: _selectedTab,
+        children: const [PasswordsTab(), SettingsTab()],
+      ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: const Color(0xFF0F172A),
@@ -155,10 +167,18 @@ class PasswordsTab extends StatefulWidget {
 class _PasswordsTabState extends State<PasswordsTab> {
   List<PasswordEntry> _entries = [];
   List<bool> _passwordVisible = [];
-
-  // ── Bug 1 fixed: renamed to _isSearching and _searchQuery (with underscore) ──
   bool _isSearching = false;
   String _searchQuery = '';
+  String _selectedCategoryFilter = 'All';
+  final List<String> _filterCategories = [
+    'All',
+    'General',
+    'Banking',
+    'Social',
+    'Work',
+    'Shopping',
+    'Streaming',
+  ];
 
   @override
   void initState() {
@@ -166,16 +186,23 @@ class _PasswordsTabState extends State<PasswordsTab> {
     _loadEntries();
   }
 
-  // ── Bug 2 fixed: added missing _filteredEntries getter ──
   List<PasswordEntry> get _filteredEntries {
-    if (_searchQuery.isEmpty) return _entries;
-    return _entries.where((entry) {
-      return entry.siteName.toLowerCase().contains(
-            _searchQuery.toLowerCase(),
-          ) ||
-          entry.username.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          entry.email.toLowerCase().contains(_searchQuery.toLowerCase());
-    }).toList();
+    List<PasswordEntry> result = _entries;
+    if (_selectedCategoryFilter != 'All') {
+      result = result
+          .where((entry) => entry.category == _selectedCategoryFilter)
+          .toList();
+    }
+    if (_searchQuery.isNotEmpty) {
+      result = result.where((entry) {
+        return entry.siteName.toLowerCase().contains(
+              _searchQuery.toLowerCase(),
+            ) ||
+            entry.username.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+            entry.email.toLowerCase().contains(_searchQuery.toLowerCase());
+      }).toList();
+    }
+    return result;
   }
 
   void _addEntry(
@@ -185,6 +212,8 @@ class _PasswordsTabState extends State<PasswordsTab> {
     String email,
     String url,
     List<Map<String, String>> securityQuestions,
+    String category,
+    String notes,
   ) {
     setState(() {
       _entries.add(
@@ -195,6 +224,8 @@ class _PasswordsTabState extends State<PasswordsTab> {
           password: EncryptionService.encryptPassword(password),
           url: url,
           securityQuestions: securityQuestions,
+          category: category.isNotEmpty ? category : 'General',
+          notes: notes,
         ),
       );
       _passwordVisible.add(false);
@@ -210,6 +241,8 @@ class _PasswordsTabState extends State<PasswordsTab> {
     String email,
     String url,
     List<Map<String, String>> securityQuestions,
+    String category,
+    String notes,
   ) {
     setState(() {
       _entries[index].siteName = siteName;
@@ -218,6 +251,8 @@ class _PasswordsTabState extends State<PasswordsTab> {
       _entries[index].password = EncryptionService.encryptPassword(password);
       _entries[index].url = url;
       _entries[index].securityQuestions = securityQuestions;
+      _entries[index].category = category.isNotEmpty ? category : 'General';
+      _entries[index].notes = notes;
     });
     _saveEntries();
   }
@@ -324,7 +359,6 @@ class _PasswordsTabState extends State<PasswordsTab> {
       child: SafeArea(
         child: Column(
           children: [
-            // ── Header ──
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
               child: Row(
@@ -353,8 +387,6 @@ class _PasswordsTabState extends State<PasswordsTab> {
                     ),
                   ),
                   const Spacer(),
-
-                  // ── Count badge + search icon ──
                   Row(
                     children: [
                       if (_entries.isNotEmpty)
@@ -377,12 +409,10 @@ class _PasswordsTabState extends State<PasswordsTab> {
                           ),
                         ),
                       const SizedBox(width: 8),
-                      // ── Bug 3 fixed: correctly references _isSearching ──
                       GestureDetector(
                         onTap: () => setState(() {
                           _isSearching = !_isSearching;
-                          if (!_isSearching)
-                            _searchQuery = ''; // clear on close
+                          if (!_isSearching) _searchQuery = '';
                         }),
                         child: Container(
                           width: 36,
@@ -412,8 +442,6 @@ class _PasswordsTabState extends State<PasswordsTab> {
                 ],
               ),
             ),
-
-            // ── Search bar — only shows when _isSearching is true ──
             if (_isSearching)
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 4, 20, 4),
@@ -467,8 +495,50 @@ class _PasswordsTabState extends State<PasswordsTab> {
                   ),
                 ),
               ),
-
-            // ── Entry list ──
+            if (_entries.isNotEmpty)
+              Container(
+                height: 40,
+                margin: const EdgeInsets.only(top: 8, bottom: 8),
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  itemCount: _filterCategories.length,
+                  itemBuilder: (context, index) {
+                    final category = _filterCategories[index];
+                    final isSelected = _selectedCategoryFilter == category;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8.0),
+                      child: ChoiceChip(
+                        label: Text(category),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          if (selected)
+                            setState(() => _selectedCategoryFilter = category);
+                        },
+                        backgroundColor: Colors.white.withOpacity(0.04),
+                        selectedColor: const Color(0xFF2563EB).withOpacity(0.2),
+                        labelStyle: TextStyle(
+                          color: isSelected
+                              ? const Color(0xFF60A5FA)
+                              : const Color(0xFF94A3B8),
+                          fontWeight: isSelected
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                          fontSize: 13,
+                        ),
+                        side: BorderSide(
+                          color: isSelected
+                              ? const Color(0xFF3B82F6).withOpacity(0.5)
+                              : Colors.white.withOpacity(0.08),
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
             Expanded(
               child: _filteredEntries.isEmpty
                   ? _buildEmptyState()
@@ -477,56 +547,86 @@ class _PasswordsTabState extends State<PasswordsTab> {
                       itemCount: _filteredEntries.length,
                       itemBuilder: (context, index) {
                         final entry = _filteredEntries[index];
-                        // map filtered index back to real index for edit/delete
                         final realIndex = _entries.indexOf(entry);
                         return _buildCard(entry, realIndex);
                       },
                     ),
             ),
-
-            // ── Add button ──
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-              child: SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton.icon(
-                  onPressed: () async {
-                    final result = await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const AddEntryScreen(),
-                      ),
+              child: GestureDetector(
+                onTap: () async {
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AddEntryScreen(),
+                    ),
+                  );
+                  if (result != null) {
+                    _addEntry(
+                      result['siteName'],
+                      result['username'],
+                      result['password'],
+                      result['email'] ?? '',
+                      result['url'] ?? '',
+                      (result['securityQuestions'] as List? ?? [])
+                          .map((e) => Map<String, String>.from(e))
+                          .toList(),
+                      result['category'] ?? 'General',
+                      result['notes'] ?? '',
                     );
-                    if (result != null) {
-                      _addEntry(
-                        result['siteName'],
-                        result['username'],
-                        result['password'],
-                        result['email'] ?? '',
-                        result['url'] ?? '',
-                        (result['securityQuestions'] as List? ?? []) // ← add
-                            .map((e) => Map<String, String>.from(e))
-                            .toList(),
-                      );
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2563EB),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                  }
+                },
+                child: Container(
+                  width: double.infinity,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF2563EB), Color(0xFF6366F1)],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
                     ),
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF2563EB).withOpacity(0.5),
+                        blurRadius: 20,
+                        offset: const Offset(0, 6),
+                      ),
+                      BoxShadow(
+                        color: const Color(0xFF6366F1).withOpacity(0.3),
+                        blurRadius: 40,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
                   ),
-                  icon: const Icon(Icons.add_rounded, size: 22),
-                  label: const Text(
-                    'Add New Password',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.3,
-                    ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.add_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'Add New Password',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -551,7 +651,7 @@ class _PasswordsTabState extends State<PasswordsTab> {
           ),
           const SizedBox(height: 24),
           Text(
-            _searchQuery.isNotEmpty ? 'No results found' : 'No Passwords Saved',
+            _searchQuery.isNotEmpty ? 'No results found' : 'KeySafe is Empty',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 20,
@@ -572,7 +672,6 @@ class _PasswordsTabState extends State<PasswordsTab> {
 
   Widget _buildCard(PasswordEntry entry, int index) {
     final Color accentColor = _getColorForSite(entry.siteName);
-
     return GestureDetector(
       onTap: () async {
         final result = await Navigator.push(
@@ -587,10 +686,11 @@ class _PasswordsTabState extends State<PasswordsTab> {
               accentColor: accentColor,
               index: index,
               securityQuestions: entry.securityQuestions,
+              category: entry.category,
+              notes: entry.notes,
             ),
           ),
         );
-
         if (result != null) {
           if (result['action'] == 'delete') {
             _confirmDelete(index);
@@ -606,6 +706,8 @@ class _PasswordsTabState extends State<PasswordsTab> {
               (data['securityQuestions'] as List? ?? [])
                   .map((e) => Map<String, String>.from(e))
                   .toList(),
+              data['category'] ?? 'General',
+              data['notes'] ?? '',
             );
           }
         }
@@ -620,29 +722,10 @@ class _PasswordsTabState extends State<PasswordsTab> {
         ),
         child: Row(
           children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [accentColor, accentColor.withOpacity(0.7)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Center(
-                child: Text(
-                  entry.siteName.isNotEmpty
-                      ? entry.siteName[0].toUpperCase()
-                      : '?',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
+            GlowingFavicon(
+              url: entry.url,
+              fallbackName: entry.siteName,
+              size: 52,
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -660,7 +743,7 @@ class _PasswordsTabState extends State<PasswordsTab> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    entry.username,
+                    entry.category,
                     style: const TextStyle(
                       color: Color(0xFF94A3B8),
                       fontSize: 13,
@@ -696,7 +779,6 @@ class _SettingsTabState extends State<SettingsTab> {
   final _newPinController = TextEditingController();
   final _confirmPinController = TextEditingController();
   static const _pinKey = 'master_pin';
-
   bool _currentVisible = false;
   bool _newVisible = false;
   bool _confirmVisible = false;
@@ -715,7 +797,6 @@ class _SettingsTabState extends State<SettingsTab> {
     final currentPin = _currentPinController.text.trim();
     final newPin = _newPinController.text.trim();
     final confirmPin = _confirmPinController.text.trim();
-
     if (currentPin.isEmpty || newPin.isEmpty || confirmPin.isEmpty) {
       setState(() {
         _message = 'Please fill in all fields.';
@@ -737,10 +818,8 @@ class _SettingsTabState extends State<SettingsTab> {
       });
       return;
     }
-
     final prefs = await SharedPreferences.getInstance();
     final savedPin = prefs.getString(_pinKey) ?? '1234';
-
     if (currentPin != savedPin) {
       setState(() {
         _message = 'Current PIN is incorrect.';
@@ -748,7 +827,6 @@ class _SettingsTabState extends State<SettingsTab> {
       });
       return;
     }
-
     await prefs.setString(_pinKey, newPin);
     _currentPinController.clear();
     _newPinController.clear();

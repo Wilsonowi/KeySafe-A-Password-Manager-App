@@ -1,8 +1,141 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:async';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../services/encryption_service.dart';
-import 'edit_entries_screen.dart'; // Ensure this matches your file name
+import 'edit_entries_screen.dart'; // Ensure this matches your actual file name
 
+// ─────────────────────────────────────────────────────────────────────────────
+// GLOWING FAVICON WIDGET (With 4-second timeout)
+// ─────────────────────────────────────────────────────────────────────────────
+class GlowingFavicon extends StatefulWidget {
+  final String url;
+  final String fallbackName;
+  final double size;
+
+  const GlowingFavicon({
+    super.key,
+    required this.url,
+    required this.fallbackName,
+    this.size = 50,
+  });
+
+  @override
+  State<GlowingFavicon> createState() => _GlowingFaviconState();
+}
+
+class _GlowingFaviconState extends State<GlowingFavicon> {
+  bool _isTimedOut = false;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _startTimer();
+  }
+
+  void _startTimer() {
+    // Give the network exactly 4 seconds to find the logo
+    _timer = Timer(const Duration(seconds: 4), () {
+      if (mounted) {
+        setState(() {
+          _isTimedOut = true; // Timer finished! Kill the spinner.
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  String _getDomain() {
+    if (widget.url.isEmpty) return '';
+    try {
+      final uri = Uri.parse(
+        widget.url.startsWith('http') ? widget.url : 'https://${widget.url}',
+      );
+      String host = uri.host;
+      if (host.startsWith('www.')) host = host.substring(4);
+      return host;
+    } catch (e) {
+      return '';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final domain = _getDomain();
+    final fallbackInitial = widget.fallbackName.isNotEmpty
+        ? widget.fallbackName[0].toUpperCase()
+        : '?';
+
+    return Container(
+      width: widget.size,
+      height: widget.size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: const Color(0xFF1E293B), // Dark slate background
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF3B82F6).withOpacity(0.3),
+            blurRadius: 15,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+      ),
+      child: ClipOval(
+        // If timed out OR no URL provided, show the letter immediately
+        child: _isTimedOut || domain.isEmpty
+            ? _buildFallback(fallbackInitial)
+            : CachedNetworkImage(
+                imageUrl: 'https://icon.horse/icon/$domain',
+                fit: BoxFit.cover,
+                imageBuilder: (context, imageProvider) {
+                  // Success! The image loaded before 4 seconds. Cancel the timer.
+                  _timer?.cancel();
+                  return Image(image: imageProvider, fit: BoxFit.cover);
+                },
+                placeholder: (context, url) => Center(
+                  child: SizedBox(
+                    width: widget.size * 0.4,
+                    height: widget.size * 0.4,
+                    child: const CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Color(0xFF3B82F6),
+                    ),
+                  ),
+                ),
+                errorWidget: (context, url, error) {
+                  // Failed (like a 404 error). Cancel timer and show letter.
+                  _timer?.cancel();
+                  return _buildFallback(fallbackInitial);
+                },
+              ),
+      ),
+    );
+  }
+
+  Widget _buildFallback(String initial) {
+    return Center(
+      child: Text(
+        initial,
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: widget.size * 0.45,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VIEW ENTRY SCREEN
+// ─────────────────────────────────────────────────────────────────────────────
 class ViewEntryScreen extends StatelessWidget {
   final String siteName;
   final String username;
@@ -12,6 +145,10 @@ class ViewEntryScreen extends StatelessWidget {
   final Color accentColor;
   final int index;
   final List<Map<String, String>> securityQuestions;
+
+  // New Fields!
+  final String category;
+  final String notes;
 
   const ViewEntryScreen({
     super.key,
@@ -23,6 +160,8 @@ class ViewEntryScreen extends StatelessWidget {
     required this.accentColor,
     required this.index,
     required this.securityQuestions,
+    required this.category,
+    required this.notes,
   });
 
   void _copy(BuildContext context, String text, String label) {
@@ -80,10 +219,12 @@ class ViewEntryScreen extends StatelessWidget {
                     builder: (context) => EditEntryScreen(
                       initialSiteName: siteName,
                       initialUsername: username,
-                      initialEmail: email, // Passed email
+                      initialEmail: email,
                       initialPassword: decryptedPassword,
                       initialUrl: url,
                       initialSecurityQuestions: securityQuestions,
+                      initialCategory: category,
+                      initialNotes: notes,
                     ),
                   ),
                 );
@@ -121,10 +262,7 @@ class ViewEntryScreen extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0F172A),
-              Color(0xFF000000),
-            ], // Black & Dark Blue Theme
+            colors: [Color(0xFF0F172A), Color(0xFF000000)],
           ),
         ),
         child: SafeArea(
@@ -133,36 +271,8 @@ class ViewEntryScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // ── Glowing Header Section ──
-                Container(
-                  width: 88,
-                  height: 88,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      colors: [accentColor, accentColor.withOpacity(0.7)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: accentColor.withOpacity(0.4), // Glowing shadow
-                        blurRadius: 24,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: Center(
-                    child: Text(
-                      siteName.isNotEmpty ? siteName[0].toUpperCase() : '?',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 40,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
+                // Favicon Header
+                GlowingFavicon(url: url, fallbackName: siteName, size: 88),
                 const SizedBox(height: 20),
 
                 Text(
@@ -175,7 +285,7 @@ class ViewEntryScreen extends StatelessWidget {
                   ),
                 ),
 
-                // URL Pill Badge (Only shows if URL is provided)
+                // URL Pill Badge
                 if (url.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   GestureDetector(
@@ -241,6 +351,13 @@ class ViewEntryScreen extends StatelessWidget {
                     children: [
                       _buildDetailRow(
                         context,
+                        icon: Icons.folder_special_rounded,
+                        label: 'Category',
+                        value: category.isNotEmpty ? category : 'General',
+                      ),
+                      _buildDivider(),
+                      _buildDetailRow(
+                        context,
                         icon: Icons.person_rounded,
                         label: 'Username',
                         value: username,
@@ -254,6 +371,17 @@ class ViewEntryScreen extends StatelessWidget {
                         value: email,
                         onCopy: () => _copy(context, email, 'Email'),
                       ),
+                      // Show Notes ONLY if they exist
+                      if (notes.isNotEmpty) ...[
+                        _buildDivider(),
+                        _buildDetailRow(
+                          context,
+                          icon: Icons.note_alt_rounded,
+                          label: 'Notes',
+                          value: notes,
+                          onCopy: () => _copy(context, notes, 'Notes'),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -314,13 +442,8 @@ class ViewEntryScreen extends StatelessWidget {
                             _buildDetailRow(
                               context,
                               icon: Icons.help_outline_rounded,
-                              label: 'Q${i + 1}',
+                              label: 'Question ${i + 1}',
                               value: qa['question'] ?? '',
-                              onCopy: () => _copy(
-                                context,
-                                qa['question'] ?? '',
-                                'Question',
-                              ),
                             ),
                             Divider(
                               height: 1,
@@ -329,7 +452,7 @@ class ViewEntryScreen extends StatelessWidget {
                             ),
                             _buildDetailRow(
                               context,
-                              icon: Icons.short_text_rounded,
+                              icon: Icons.key_rounded,
                               label: 'Answer',
                               value: qa['answer'] ?? '',
                               onCopy: () =>
@@ -347,6 +470,7 @@ class ViewEntryScreen extends StatelessWidget {
                     ),
                   ),
                 ],
+                const SizedBox(height: 40),
 
                 // ── Delete Button ──
                 SizedBox(
@@ -357,10 +481,8 @@ class ViewEntryScreen extends StatelessWidget {
                       Navigator.pop(context, {'action': 'delete'});
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(
-                        0xFFEF4444,
-                      ).withOpacity(0.1), // Tinted Red Background
-                      foregroundColor: const Color(0xFFF87171), // Red Text
+                      backgroundColor: const Color(0xFFEF4444).withOpacity(0.1),
+                      foregroundColor: const Color(0xFFF87171),
                       elevation: 0,
                       side: BorderSide(
                         color: const Color(0xFFEF4444).withOpacity(0.3),
@@ -392,7 +514,7 @@ class ViewEntryScreen extends StatelessWidget {
     return Divider(
       height: 1,
       color: Colors.white.withOpacity(0.08),
-      indent: 56, // Indented so it aligns with the text, not the icon
+      indent: 56,
     );
   }
 
@@ -402,7 +524,7 @@ class ViewEntryScreen extends StatelessWidget {
     required IconData icon,
     required String label,
     required String value,
-    required VoidCallback onCopy,
+    VoidCallback? onCopy, // Made this optional
   }) {
     final displayValue = value.isEmpty ? '—' : value;
 
@@ -410,7 +532,6 @@ class ViewEntryScreen extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       child: Row(
         children: [
-          // Tinted Icon Box
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
@@ -420,8 +541,6 @@ class ViewEntryScreen extends StatelessWidget {
             child: Icon(icon, size: 20, color: const Color(0xFF3B82F6)),
           ),
           const SizedBox(width: 16),
-
-          // Stacked Text
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -446,25 +565,26 @@ class ViewEntryScreen extends StatelessWidget {
               ],
             ),
           ),
-
-          // Action Button
-          IconButton(
-            onPressed: onCopy,
-            icon: const Icon(
-              Icons.copy_rounded,
-              size: 20,
-              color: Color(0xFF94A3B8),
+          if (onCopy != null)
+            IconButton(
+              onPressed: onCopy,
+              icon: const Icon(
+                Icons.copy_rounded,
+                size: 20,
+                color: Color(0xFF94A3B8),
+              ),
+              splashColor: const Color(0xFF3B82F6).withOpacity(0.2),
+              highlightColor: Colors.transparent,
             ),
-            splashColor: const Color(0xFF3B82F6).withOpacity(0.2),
-            highlightColor: Colors.transparent,
-          ),
         ],
       ),
     );
   }
 }
 
-// ── Stateful widget for Password Reveal ──
+// ─────────────────────────────────────────────────────────────────────────────
+// PASSWORD REVEAL CARD
+// ─────────────────────────────────────────────────────────────────────────────
 class _PasswordRevealCard extends StatefulWidget {
   final String password;
   final Color accentColor;
@@ -494,7 +614,6 @@ class _PasswordRevealCardState extends State<_PasswordRevealCard> {
       ),
       child: Row(
         children: [
-          // Tinted Icon Box
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
@@ -508,8 +627,6 @@ class _PasswordRevealCardState extends State<_PasswordRevealCard> {
             ),
           ),
           const SizedBox(width: 16),
-
-          // Password Text
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -535,8 +652,6 @@ class _PasswordRevealCardState extends State<_PasswordRevealCard> {
               ],
             ),
           ),
-
-          // Toggle Visibility Button
           IconButton(
             onPressed: () => setState(() => _visible = !_visible),
             icon: Icon(
@@ -549,8 +664,6 @@ class _PasswordRevealCardState extends State<_PasswordRevealCard> {
             splashColor: const Color(0xFF3B82F6).withOpacity(0.2),
             highlightColor: Colors.transparent,
           ),
-
-          // Copy Button
           IconButton(
             onPressed: widget.onCopy,
             icon: const Icon(
