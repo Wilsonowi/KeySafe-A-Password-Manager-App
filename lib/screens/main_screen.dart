@@ -171,7 +171,7 @@ class _PasswordsTabState extends State<PasswordsTab> {
     'Social',
     'Work',
     'Shopping',
-    'Streaming',
+    'Gaming',
   ];
 
   @override

@@ -8,7 +8,6 @@ class AddEntryScreen extends StatefulWidget {
   State<AddEntryScreen> createState() => _AddEntryScreenState();
 }
 
-// Returns 0 = weak, 1 = medium, 2 = strong
 int _getPasswordStrength(String password) {
   if (password.isEmpty) return 0;
 

@@ -55,7 +55,7 @@ class _EditEntryScreenState extends State<EditEntryScreen> {
     'Social',
     'Work',
     'Shopping',
-    'Streaming',
+    'Gaming',
   ];
   @override
   void initState() {
