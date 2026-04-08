@@ -33,7 +33,7 @@ class _GlowingFaviconState extends State<GlowingFavicon> {
 
   void _startTimer() {
     // Give the network exactly 4 seconds to find the logo
-    _timer = Timer(const Duration(seconds: 4), () {
+    _timer = Timer(const Duration(seconds: 3), () {
       if (mounted) {
         setState(() {
           _isTimedOut = true; // Timer finished! Kill the spinner.
@@ -74,7 +74,7 @@ class _GlowingFaviconState extends State<GlowingFavicon> {
       height: widget.size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: const Color(0xFF1E293B), // Dark slate background
+        color: const Color(0xFF1E293B),
         boxShadow: [
           BoxShadow(
             color: const Color(0xFF3B82F6).withOpacity(0.3),
@@ -92,7 +92,6 @@ class _GlowingFaviconState extends State<GlowingFavicon> {
                 imageUrl: 'https://icon.horse/icon/$domain',
                 fit: BoxFit.cover,
                 imageBuilder: (context, imageProvider) {
-                  // Success! The image loaded before 4 seconds. Cancel the timer.
                   _timer?.cancel();
                   return Image(image: imageProvider, fit: BoxFit.cover);
                 },
@@ -107,7 +106,6 @@ class _GlowingFaviconState extends State<GlowingFavicon> {
                   ),
                 ),
                 errorWidget: (context, url, error) {
-                  // Failed (like a 404 error). Cancel timer and show letter.
                   _timer?.cancel();
                   return _buildFallback(fallbackInitial);
                 },
@@ -139,8 +137,6 @@ class ViewEntryScreen extends StatelessWidget {
   final Color accentColor;
   final int index;
   final List<Map<String, String>> securityQuestions;
-
-  // New Fields!
   final String category;
   final String notes;
 
@@ -320,7 +316,6 @@ class ViewEntryScreen extends StatelessWidget {
 
                 const SizedBox(height: 40),
 
-                // ── Details Section ──
                 Align(
                   alignment: Alignment.centerLeft,
                   child: const Text(
@@ -382,7 +377,6 @@ class ViewEntryScreen extends StatelessWidget {
 
                 const SizedBox(height: 24),
 
-                // ── Password Section ──
                 Align(
                   alignment: Alignment.centerLeft,
                   child: const Text(
@@ -405,7 +399,6 @@ class ViewEntryScreen extends StatelessWidget {
 
                 const SizedBox(height: 40),
 
-                // ── Security Questions Section ──
                 if (securityQuestions.isNotEmpty) ...[
                   const SizedBox(height: 24),
                   const Align(
@@ -466,7 +459,6 @@ class ViewEntryScreen extends StatelessWidget {
                 ],
                 const SizedBox(height: 40),
 
-                // ── Delete Button ──
                 SizedBox(
                   width: double.infinity,
                   height: 56,

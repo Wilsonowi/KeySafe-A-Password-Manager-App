@@ -143,8 +143,8 @@ class _LockScreenState extends State<LockScreen> {
         height: double.infinity,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
             colors: [Color(0xFF0F172A), Color(0xFF000000)],
           ),
         ),
@@ -249,7 +249,6 @@ class _LockScreenState extends State<LockScreen> {
   Widget _buildNormalView() {
     return Column(
       children: [
-        // ── Top: Logo + title + PIN dots ──
         Expanded(
           flex: 4,
           child: Column(
@@ -272,10 +271,8 @@ class _LockScreenState extends State<LockScreen> {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(24),
                   child: Image.asset(
-                    'assets/logo.png', // ← your logo file
+                    'assets/logo.png',
                     fit: BoxFit.cover,
-                    // If logo.png is missing, remove these 3 lines and
-                    // uncomment the fallback block below
                     errorBuilder: (context, error, stackTrace) => Container(
                       decoration: const BoxDecoration(
                         gradient: LinearGradient(
